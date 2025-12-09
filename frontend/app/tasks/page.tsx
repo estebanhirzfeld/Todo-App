@@ -13,6 +13,8 @@ interface Task {
   userId: string;
 }
 
+type ModalType = 'create' | 'edit' | 'delete' | null;
+
 export default function TasksPage() {
   const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -20,9 +22,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   
   // Modal State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
   
   // Form State
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
@@ -31,6 +31,8 @@ export default function TasksPage() {
   
   // Toast State
   const [toast, setToast] = useState<{ message: string; type: string } | null>(null);
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -41,8 +43,9 @@ export default function TasksPage() {
   }, [isAuthenticated, user, router]);
 
   const fetchTasks = async () => {
+    if (!user) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/tasks/${user.id}`);
+      const res = await fetch(`${API_URL}/tasks/${user.id}`);
       if (res.ok) {
         const data = await res.json();
         setTasks(data);
@@ -60,8 +63,9 @@ export default function TasksPage() {
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     try {
-      const res = await fetch('http://localhost:4000/api/tasks', {
+      const res = await fetch(`${API_URL}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTaskTitle, userId: user.id }),
@@ -71,7 +75,7 @@ export default function TasksPage() {
         const newTask = await res.json();
         setTasks([...tasks, newTask]);
         setNewTaskTitle('');
-        setIsCreateModalOpen(false);
+        setActiveModal(null);
         showToast('Task created successfully', 'success');
       } else {
         showToast('Failed to create task', 'error');
@@ -86,7 +90,7 @@ export default function TasksPage() {
     if (!currentTask) return;
 
     try {
-      const res = await fetch(`http://localhost:4000/api/tasks/${currentTask.id}`, {
+      const res = await fetch(`${API_URL}/tasks/${currentTask.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editTaskTitle }),
@@ -95,7 +99,7 @@ export default function TasksPage() {
       if (res.ok) {
         const updatedTask = await res.json();
         setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-        setIsEditModalOpen(false);
+        setActiveModal(null);
         setCurrentTask(null);
         showToast('Task updated successfully', 'success');
       } else {
@@ -108,7 +112,7 @@ export default function TasksPage() {
 
   const handleToggleComplete = async (task: Task) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/tasks/${task.id}`, {
+      const res = await fetch(`${API_URL}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !task.completed }),
@@ -127,13 +131,13 @@ export default function TasksPage() {
     if (!currentTask) return;
 
     try {
-      const res = await fetch(`http://localhost:4000/api/tasks/${currentTask.id}`, {
+      const res = await fetch(`${API_URL}/tasks/${currentTask.id}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
         setTasks(tasks.filter(t => t.id !== currentTask.id));
-        setIsDeleteModalOpen(false);
+        setActiveModal(null);
         setCurrentTask(null);
         showToast('Task deleted successfully', 'success');
       } else {
@@ -147,12 +151,12 @@ export default function TasksPage() {
   const openEditModal = (task: Task) => {
     setCurrentTask(task);
     setEditTaskTitle(task.title);
-    setIsEditModalOpen(true);
+    setActiveModal('edit');
   };
 
   const openDeleteModal = (task: Task) => {
     setCurrentTask(task);
-    setIsDeleteModalOpen(true);
+    setActiveModal('delete');
   };
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
@@ -169,7 +173,7 @@ export default function TasksPage() {
         </div>
 
         <button
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={() => setActiveModal('create')}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition mb-6"
         >
           Add New Task
@@ -215,7 +219,7 @@ export default function TasksPage() {
       </div>
 
       {/* Create Modal */}
-      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Task">
+      <Modal isOpen={activeModal === 'create'} onClose={() => setActiveModal(null)} title="Create Task">
         <form onSubmit={handleCreateTask}>
           <input
             type="text"
@@ -226,14 +230,14 @@ export default function TasksPage() {
             required
           />
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+            <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
             <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Create</button>
           </div>
         </form>
       </Modal>
 
       {/* Edit Modal */}
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Task">
+      <Modal isOpen={activeModal === 'edit'} onClose={() => setActiveModal(null)} title="Edit Task">
         <form onSubmit={handleUpdateTask}>
           <input
             type="text"
@@ -243,17 +247,17 @@ export default function TasksPage() {
             required
           />
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+            <button type="button" onClick={() => setActiveModal(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
             <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
           </div>
         </form>
       </Modal>
 
       {/* Delete Modal */}
-      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirm Delete">
+      <Modal isOpen={activeModal === 'delete'} onClose={() => setActiveModal(null)} title="Confirm Delete">
         <p className="mb-4 text-gray-600">Are you sure you want to delete this task?</p>
         <div className="flex justify-end gap-2">
-          <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+          <button onClick={() => setActiveModal(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
           <button onClick={handleDeleteTask} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Delete</button>
         </div>
       </Modal>
