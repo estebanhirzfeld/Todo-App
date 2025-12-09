@@ -7,16 +7,16 @@ import Modal from '../../components/Modal';
 import Toast from '../../components/Toast';
 
 interface Task {
-  id: string;
+  id: number; // Changed to number to match backend
   title: string;
   completed: boolean;
-  userId: string;
+  userId: number;
 }
 
 type ModalType = 'create' | 'edit' | 'delete' | null;
 
 export default function TasksPage() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, token, logout, isAuthenticated } = useAuth();
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,23 +32,29 @@ export default function TasksPage() {
   // Toast State
   const [toast, setToast] = useState<{ message: string; type: string } | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/');
-    } else if (user) {
+    } else if (token) {
       fetchTasks();
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, token, router]);
 
   const fetchTasks = async () => {
-    if (!user) return;
+    if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/tasks/${user.id}`);
+      const res = await fetch(`${API_URL}/tasks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         setTasks(data);
+      } else if (res.status === 401) {
+        logout();
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -63,12 +69,15 @@ export default function TasksPage() {
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!token) return;
     try {
       const res = await fetch(`${API_URL}/tasks`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTaskTitle, userId: user.id }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: newTaskTitle }),
       });
 
       if (res.ok) {
@@ -77,6 +86,8 @@ export default function TasksPage() {
         setNewTaskTitle('');
         setActiveModal(null);
         showToast('Task created successfully', 'success');
+      } else if (res.status === 401) {
+        logout();
       } else {
         showToast('Failed to create task', 'error');
       }
@@ -87,12 +98,15 @@ export default function TasksPage() {
 
   const handleUpdateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentTask) return;
+    if (!currentTask || !token) return;
 
     try {
       const res = await fetch(`${API_URL}/tasks/${currentTask.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ title: editTaskTitle }),
       });
 
@@ -102,6 +116,8 @@ export default function TasksPage() {
         setActiveModal(null);
         setCurrentTask(null);
         showToast('Task updated successfully', 'success');
+      } else if (res.status === 401) {
+        logout();
       } else {
         showToast('Failed to update task', 'error');
       }
@@ -111,16 +127,22 @@ export default function TasksPage() {
   };
 
   const handleToggleComplete = async (task: Task) => {
+    if (!token) return;
     try {
       const res = await fetch(`${API_URL}/tasks/${task.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ completed: !task.completed }),
       });
 
       if (res.ok) {
         const updatedTask = await res.json();
         setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+      } else if (res.status === 401) {
+        logout();
       }
     } catch (error) {
       showToast('Error updating task', 'error');
@@ -128,11 +150,14 @@ export default function TasksPage() {
   };
 
   const handleDeleteTask = async () => {
-    if (!currentTask) return;
+    if (!currentTask || !token) return;
 
     try {
       const res = await fetch(`${API_URL}/tasks/${currentTask.id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (res.ok) {
@@ -140,6 +165,8 @@ export default function TasksPage() {
         setActiveModal(null);
         setCurrentTask(null);
         showToast('Task deleted successfully', 'success');
+      } else if (res.status === 401) {
+        logout();
       } else {
         showToast('Failed to delete task', 'error');
       }
@@ -167,7 +194,7 @@ export default function TasksPage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">My Tasks</h1>
           <div className="flex items-center gap-4">
-            <span className="text-gray-600">Welcome, {user?.name}</span>
+            <span className="text-gray-600">User: {user?.email}</span>
             <button onClick={logout} className="text-red-500 hover:text-red-700 font-medium">Logout</button>
           </div>
         </div>
