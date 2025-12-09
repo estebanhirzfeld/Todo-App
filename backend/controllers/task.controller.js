@@ -1,55 +1,85 @@
-import { tasks } from '../models/data.js';
+import { PrismaClient } from '@prisma/client';
 
-export const getTasks = (req, res) => {
-  const { userId } = req.params;
-  const userTasks = tasks.filter(task => task.userId === userId);
-  res.json(userTasks);
+const prisma = new PrismaClient();
+
+export const getTasks = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const userTasks = await prisma.task.findMany({
+      where: { userId },
+    });
+    res.json(userTasks);
+  } catch (error) {
+    next(error);
+  }
 };
 
-export const createTask = (req, res) => {
-  const { title, userId } = req.body;
+export const createTask = async (req, res, next) => {
+  try {
+    const { title } = req.body;
+    const userId = req.user.userId;
 
-  if (!title || !userId) {
-    return res.status(400).json({ message: 'Title and userId are required' });
+    if (!title) {
+      return res.status(400).json({ message: 'Title is required' });
+    }
+
+    const newTask = await prisma.task.create({
+      data: {
+        title,
+        userId,
+        completed: false,
+      },
+    });
+
+    res.status(201).json(newTask);
+  } catch (error) {
+    next(error);
   }
-
-  const newTask = {
-    id: Date.now().toString(),
-    title,
-    userId,
-    completed: false,
-    createdAt: new Date()
-  };
-
-  tasks.push(newTask);
-  res.status(201).json(newTask);
 };
 
-export const updateTask = (req, res) => {
-  const { taskId } = req.params;
-  const { title, completed } = req.body;
+export const updateTask = async (req, res, next) => {
+  try {
+    const { taskId } = req.params;
+    const { title, completed } = req.body;
+    const userId = req.user.userId;
 
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
+    const updatedTask = await prisma.task.update({
+      where: {
+        id: parseInt(taskId),
+        userId, // Ensure user owns the task
+      },
+      data: {
+        title,
+        completed,
+      },
+    });
 
-  if (taskIndex === -1) {
-    return res.status(404).json({ message: 'Task not found' });
+    res.json(updatedTask);
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    next(error);
   }
-
-  const task = tasks[taskIndex];
-  if (title !== undefined) task.title = title;
-  if (completed !== undefined) task.completed = completed;
-
-  res.json(task);
 };
 
-export const deleteTask = (req, res) => {
-  const { taskId } = req.params;
-  const taskIndex = tasks.findIndex(t => t.id === taskId);
+export const deleteTask = async (req, res, next) => {
+  try {
+    const { taskId } = req.params;
+    const userId = req.user.userId;
 
-  if (taskIndex === -1) {
-    return res.status(404).json({ message: 'Task not found' });
+    await prisma.task.delete({
+      where: {
+        id: parseInt(taskId),
+        userId, // Ensure user owns the task
+      },
+    });
+
+    res.json({ message: 'Task deleted' });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    next(error);
   }
-
-  tasks.splice(taskIndex, 1);
-  res.json({ message: 'Task deleted' });
 };

@@ -6,17 +6,21 @@ import Link from 'next/link';
 
 export default function RegisterPage() {
   const { register } = useAuth();
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const result = await register(name, email, password);
+    setSuccessMessage('');
+    const result = await register(email, password);
     if (!result.success) {
-      setError(result.message);
+      setError(result.message || 'Registration failed');
+    } else {
+      setSuccessMessage('Registration successful! Please login.');
+      // Optionally redirect to login page after a delay
     }
   };
 
@@ -25,17 +29,8 @@ export default function RegisterPage() {
       <div className="bg-white p-8 rounded shadow-md w-96">
         <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Register</h1>
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        {successMessage && <p className="text-green-500 text-sm mb-4">{successMessage}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded mt-1 text-gray-900"
-              required
-            />
-          </div>
           <div>
             <label className="block text-gray-700">Email</label>
             <input

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from 'react';
+import PropTypes from 'prop-types';
 
 interface ToastProps {
   message: string;
@@ -28,3 +29,9 @@ export default function Toast({ message, type, onClose }: ToastProps) {
     </div>
   );
 }
+
+Toast.propTypes = {
+  message: PropTypes.string.isRequired,
+  type: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired,
+};

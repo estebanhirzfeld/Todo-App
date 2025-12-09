@@ -1,5 +1,7 @@
 "use client";
 
+import PropTypes from 'prop-types';
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,3 +24,10 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     </div>
   );
 }
+
+Modal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+};
