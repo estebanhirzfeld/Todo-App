@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError('');
     const result = await login(email, password);
     if (!result.success) {
-      setError(result.message);
+      setError(result.message || 'Login failed');
     }
   };
 
